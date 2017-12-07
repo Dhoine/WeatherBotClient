@@ -46,6 +46,7 @@
             this.label6 = new System.Windows.Forms.Label();
             this.SoftInp = new System.Windows.Forms.TextBox();
             this.HardInp = new System.Windows.Forms.TextBox();
+            this.GuiUpdateTimer = new System.Windows.Forms.Timer(this.components);
             this.tableLayoutPanel1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -229,6 +230,10 @@
             this.HardInp.TabIndex = 12;
             this.HardInp.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.HardInp_KeyPress);
             // 
+            // GuiUpdateTimer
+            // 
+            this.GuiUpdateTimer.Tick += new System.EventHandler(this.GuiUpdateTimer_Tick);
+            // 
             // Client
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -265,6 +270,7 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.TextBox SoftInp;
         private System.Windows.Forms.TextBox HardInp;
+        private System.Windows.Forms.Timer GuiUpdateTimer;
     }
 }
 

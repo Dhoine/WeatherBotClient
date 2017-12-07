@@ -3,11 +3,11 @@ using System.Drawing;
 using System.IO;
 using System.IO.Ports;
 using System.Management;
-using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
+using RestSharp;
 
 namespace WeatherBotClient
 {
@@ -37,7 +37,9 @@ namespace WeatherBotClient
             backgroundNotifyIcon.Visible = true;
             ConnectionTimer.Interval = 2000;
             ConnectionTimer.Start();
-            SendTimer.Interval = 1000;
+            SendTimer.Interval = 60000;
+            GuiUpdateTimer.Interval = 5000;
+            GuiUpdateTimer.Start();
             SendTimer.Start();
         }
 
@@ -88,7 +90,7 @@ namespace WeatherBotClient
             }
             catch (ManagementException)
             {
-                //ignoder
+                //ignored
             }
             return "";
         }
@@ -124,9 +126,9 @@ namespace WeatherBotClient
 
         private void UpdateUi()
         {
-            TemperatureLabel.Text =  $@"{_temperature} °C";
-            HumLabel.Text =  $@"{_hum.TrimEnd()} %";
-            Co2Label.Text =  $@"{_ppm} PPM";
+            TemperatureLabel.Text = $@"{_temperature} °C";
+            HumLabel.Text = $@"{_hum.TrimEnd()} %";
+            Co2Label.Text = $@"{_ppm} PPM";
             PressLabel.Text = $@"{Convert.ToDecimal(_pressure.Replace(".", ",")) / 133.322m:F3} mmHg";
             var ppm = Convert.ToInt32(_ppm);
             BackColor = ppm > _softCap ? (ppm < _hardCap ? Color.Yellow : Color.Red) : DefaultBackColor;
@@ -139,55 +141,25 @@ namespace WeatherBotClient
 
         private void SendTimer_Tick(object sender, EventArgs e)
         {
-            var updateThread = new Thread(UpdateAndSend);
+            var updateThread = new Thread(Send);
             updateThread.Start();
         }
 
-        public void UpdateAndSend()
+        public void Send()
         {
-            if (!_connected)
-                return;
-
-            var test = _serial.IsOpen;
-            if (!test)
-            {
-                ConnectionTimer.Start();
-                return;
-            }
-            if (_hum == null || _temperature == null || _ppm == null || _pressure == null) return;
-            TemperatureLabel.Invoke((Action) UpdateUi);
             var toHistory = DateTime.Now.Minute == 0;
-            var httpWebRequest =
-                (HttpWebRequest) WebRequest.Create("http://placeholder/api/info/");
-            httpWebRequest.ContentType = "application/json";
-            httpWebRequest.Method = "POST";
-
-            using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
+            var client = new RestClient("https://weatherapp20171206014726.azurewebsites.net/api/info");
+            var request = new RestRequest(Method.POST);
+            request.AddJsonBody(new
             {
-                var json = "{" + $"\"time\": \"{_time}\"," +
-                           $"\"co2\": \"{_ppm}\"," +
-                           $"\"pressure\": \"{_pressure}\"," +
-                           $"\"temp\": \"{_temperature}\"," +
-                           $"\"hum\": \"{_hum}\"," +
-                           $"\"toHistory\": \"{toHistory.ToString().ToLower()}\"" + "}";
-
-                streamWriter.Write(json);
-                streamWriter.Flush();
-                streamWriter.Close();
-            }
-            try
-            {
-                var httpResponse = (HttpWebResponse) httpWebRequest.GetResponse();
-                using (var streamReader =
-                    new StreamReader(httpResponse.GetResponseStream() ?? throw new InvalidOperationException()))
-                {
-                    streamReader.ReadToEnd();
-                }
-            }
-            catch (Exception exception)
-            {
-                Console.WriteLine(exception);
-            }
+                time = _time,
+                co2 = _ppm,
+                pressure = _pressure,
+                temp = _temperature,
+                hum = _hum.Trim(),
+                toHistory = toHistory.ToString().ToLower()
+            });
+            client.ExecuteAsync(request, response => { });
         }
 
         private void SoftInp_KeyPress(object sender, KeyPressEventArgs e)
@@ -238,6 +210,21 @@ namespace WeatherBotClient
                 MessageBox.Show(@"Wrong input", @"Error", MessageBoxButtons.OK);
                 HardInp.Text = _hardCap.ToString();
             }
+        }
+
+        private void GuiUpdateTimer_Tick(object sender, EventArgs e)
+        {
+            if (!_connected)
+                return;
+
+            var test = _serial.IsOpen;
+            if (!test)
+            {
+                ConnectionTimer.Start();
+                return;
+            }
+            if (_hum == null || _temperature == null || _ppm == null || _pressure == null) return;
+            TemperatureLabel.Invoke((Action) UpdateUi);
         }
     }
 }
