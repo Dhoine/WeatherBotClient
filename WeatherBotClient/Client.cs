@@ -147,7 +147,9 @@ namespace WeatherBotClient
 
         public void Send()
         {
-            var toHistory = DateTime.Now.Minute == 0;
+            if (CheckForArduinoPort() == "")
+                return;
+            var toHistory = DateTime.Parse(_time).Minute == 0;
             var client = new RestClient("https://weatherapp20171206014726.azurewebsites.net/api/info");
             var request = new RestRequest(Method.POST);
             request.AddJsonBody(new
